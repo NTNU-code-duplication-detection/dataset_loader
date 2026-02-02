@@ -6,12 +6,8 @@ Duplication is classified using spatial closeness in the embedding-space.
 ## Requirements
 This project uses python as the backend
 - python3
-- pi
+- pip
 
-H2 driver for database reading
-```
-http://www.h2database.com/html/main.html
-```
 
 ## Installation
 Run these command in your shell

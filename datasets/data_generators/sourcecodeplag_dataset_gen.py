@@ -1,7 +1,23 @@
+"""
+Generator for Source Code Plagiarism Dataset
+
+Dataset:
+    Name: IR-Plag-Dataset
+    Source: https://github.com/oscarkarnalim/sourcecodeplagiarismdataset
+    Version/Commit: f07e951 (submodule commit)
+    License: Apache License 2.0
+
+Usage:
+    from data_generators.sourcecodeplag_dataset_gen import original_non_plagiarized_generator, original_plagiarized_generator
+"""
 from pathlib import Path
 
+original    = 'original'
+non_plag    = 'non-plagiarized'
+plag        = 'plagiarized'
 
-def find_single_java(folder: Path) -> Path:
+
+def _find_single_java(folder: Path) -> Path:
     """
     Finds the single file in a folder given as Path
 
@@ -27,8 +43,8 @@ def original_non_plagiarized_generator(dataset_root: str):
         if not outer.is_dir():
             continue
 
-        original_dir = outer / "original"
-        non_plag_dir = outer / "non-plagiarized"
+        original_dir = outer / original 
+        non_plag_dir = outer / non_plag
 
         if not original_dir.exists() or not non_plag_dir.exists():
             continue
@@ -56,8 +72,8 @@ def original_plagiarized_generator(dataset_root: str):
         if not outer.is_dir():
             continue
 
-        original_dir = outer / "original"
-        plag_dir = outer / "plagiarized"
+        original_dir = outer / original
+        plag_dir = outer / plag
 
         if not original_dir.exists() or not plag_dir.exists():
             continue

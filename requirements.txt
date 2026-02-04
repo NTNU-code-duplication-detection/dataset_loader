@@ -6,3 +6,4 @@ datasets
 sqlalchemy
 psycopg2
 getpass
+javalang

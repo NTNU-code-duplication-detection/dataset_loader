@@ -54,6 +54,7 @@ def test_ir_plag():
     """
     Load model and create a simple embedding
     """
+    
     model="microsoft/unixcoder-base"
     pipe = get_feature_extraction_pipe(model)
 
@@ -77,3 +78,15 @@ def test_ir_plag():
         f2 = mean_pool(pipe(ext))
         print_cosine_similarity(f1, f2)
 
+
+def traverse_dataset_lazy():
+    import os
+    import time
+
+    folder = "datasets/dataset/selected"
+
+    for root, dirs, files in os.walk(folder):
+        print(root)  # Print the current folder
+        for f in files:
+            time.sleep(1)
+            print("   ", f)  # Print each file in that folder

@@ -1,5 +1,5 @@
 # Datasets
-This project uses two external datasets: one as a Git submodule, and one large dataset from OneDrive.
+This project uses three external datasets: one as a Git submodule, one large dataset from OneDrive, and one from HuggingFace.
 
 ## 1. Git Submodule Dataset
 - **Name:** sourcecodeplagiarismdataset
@@ -28,13 +28,16 @@ git submodule update --init --recursive
 
 ### Recommended Folder Structure
 ```text
-~/datasets/bigclonebench                        # Large dataset from OneDrive
-project/                                    # Git repository
-    datasets/sourcecodeplagiarismdataset/   # Submodule
+~/data/
+    bigclonebench/                      # Large dataset from OneDrive
+
+project/                                # Git repository
+    data/
+        sourcecodeplagiarismdataset/    # Submodule
 ```
 
 ### Extraction Instructions
-#### Ubuntu/Linux
+#### macOS / Linux
 ```bash
 # Create datasets folder
 mkdir -p ~/datasets/bigclonebench
@@ -42,14 +45,29 @@ mkdir -p ~/datasets/bigclonebench
 # Extract the dataset (assuming downloaded to ~/Downloads/dataset.tar.gz)
 tar -xf ~/Downloads/dataset.tar.gz -C ~/datasets/bigclonebench
 ```
-
-#### macOS
-```bash
-# Create datasets folder
-mkdir -p ~/datasets/bigclonebench
-
-# Extract the dataset (assuming downloaded to ~/Downloads/dataset.zip)
-unzip ~/Downloads/dataset.tar.gz -d ~/dataset/bigclonebench
-```
 NOTE: Make sure to extract the dataset directly into ~/datasets/to avoid issues with moving large files later.
 
+### Custom Dataset Location
+By default, the BigCloneBench dataset is expected at `~/datasets/bigclonebench`.
+This can be overridden by setting the `BIGCLONEBENCH_ROOT` environment variable.
+```bash
+export BIGCLONEBENCH_ROOT=/mnt/ssd/bigclonebench
+```
+
+
+## 3. CodeXGlue from Google/Microsoft/Madlag
+- **Source:** [Hugging Face - CodeXGlue Clone detection](https://huggingface.co/datasets/google/code_x_glue_cc_clone_detection_big_clone_bench)
+- **Purpose:** Provides labeled pairs of Java methods from BigCloneBench, for training and evaluating code clone detection models. Each pair has a binary label indicating whether the two methods are clones/plagiarized (1) or not (0).
+- **Format:** JSON/CSV-style dataset with fields including
+```
+{
+    "func1": "      # Full text of frist function 
+    "func2": "      # Full text of second function
+    "id": 0,        # Index of sample
+    "id1": 2381663, # First function ID
+    "id2": 4458076, # Second function ID
+    "label": false  # true of functions are not eqivalent, false otherwise
+}
+```
+- **License:** Computational Use of Data Agreement (C-UDA) License.
+- **Location in project:** This dataset is **downloaded on demand** via Huggingface Datasets Library

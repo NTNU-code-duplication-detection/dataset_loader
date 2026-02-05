@@ -98,3 +98,20 @@ docker start bigclonebench-db
 
 ---
 This setup gives you a fully isolated PostgreSQL instance with BigCloneBench ready for querying and analysis.
+
+# Pure IJaDataset with BigCloneBench samples
+Download this dataset
+Found in https://github.com/clonebench/BigCloneBench?tab=readme-ov-file#bigclonebench-version-2-use-this-version
+https://1drv.ms/u/s!AhXbM6MKt_yLj_tk29GJnc9BKoIvCg?e=oVTVJm
+
+For ubuntu:
+```bash
+mkdir -p ~/datasets
+tar -xf ~/Downloads/dataset.tar.gz -C ~/datasets/dataset
+```
+
+For MacOS:
+```bash
+mkdir -p ~/datasets
+unzip ~/Downloads/dataset.tar.gz -d ~/datasets/dataset
+```

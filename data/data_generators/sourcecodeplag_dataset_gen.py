@@ -6,15 +6,27 @@ Dataset:
     Source: https://github.com/oscarkarnalim/sourcecodeplagiarismdataset
     Version/Commit: f07e951 (submodule commit)
     License: Apache License 2.0
-
-Usage:
-    from datasets.data_generators.sourcecodeplag_dataset_gen import original_non_plagiarized_generator, original_plagiarized_generator
 """
 from pathlib import Path
+from data.data_generators.schema import CodeSample
 
-original    = 'original'
-non_plag    = 'non-plagiarized'
-plag        = 'plagiarized'
+ORIGINAL    = 'original'
+NON_PLAG    = 'non-plagiarized'
+PLAG        = 'plagiarized'
+
+_THIS_DIR = Path(__file__).resolve().parent
+DEFAULT_DATASET_ROOT = (
+    _THIS_DIR
+    / ".."
+    / "sourcecodeplagiarismdataset"
+    / "IR-Plag-Dataset"
+).resolve()
+
+def _read_java(java_path: Path) -> str:
+    """
+    Reads a single java file from path
+    """
+    return java_path.read_text(encoding="utf-8", errors="ignore")
 
 
 def _find_single_java(folder: Path) -> Path:
@@ -30,7 +42,7 @@ def _find_single_java(folder: Path) -> Path:
     return java_files[0]
 
 
-def original_non_plagiarized_generator(dataset_root: str):
+def original_non_plagiarized_generator(dataset_root: str | Path = DEFAULT_DATASET_ROOT):
     """
     Generator for retrieving pair of original and non-plagiarized files
 
@@ -43,23 +55,31 @@ def original_non_plagiarized_generator(dataset_root: str):
         if not outer.is_dir():
             continue
 
-        original_dir = outer / original 
-        non_plag_dir = outer / non_plag
+        original_dir = outer / ORIGINAL
+        non_plag_dir = outer / NON_PLAG
 
         if not original_dir.exists() or not non_plag_dir.exists():
             continue
 
         original_java = _find_single_java(original_dir)
+        original_code = _read_java(original_java)
 
         for np_folder in non_plag_dir.iterdir():
             if not np_folder.is_dir():
                 continue
 
             np_java = _find_single_java(np_folder)
-            yield original_java, np_java
+            np_code = _read_java(np_java)
+
+            yield CodeSample(
+                code_a=original_code,
+                code_b=np_code,
+                label=0,
+                dataset='SourceCodePlag'
+            )
 
 
-def original_plagiarized_generator(dataset_root: str):
+def original_plagiarized_generator(dataset_root: str | Path = DEFAULT_DATASET_ROOT):
     """
     Generator for retrieving pair of original and plagiarized files
 
@@ -72,13 +92,14 @@ def original_plagiarized_generator(dataset_root: str):
         if not outer.is_dir():
             continue
 
-        original_dir = outer / original
-        plag_dir = outer / plag
+        original_dir = outer / ORIGINAL
+        plag_dir = outer / PLAG
 
         if not original_dir.exists() or not plag_dir.exists():
             continue
 
         original_java = _find_single_java(original_dir)
+        original_code = _read_java(original_java)
 
         for plag_outer in plag_dir.iterdir():
             if not plag_outer.is_dir():
@@ -89,4 +110,11 @@ def original_plagiarized_generator(dataset_root: str):
                     continue
 
                 plag_java = _find_single_java(plag_inner)
-                yield original_java, plag_java
+                plag_code = _read_java(plag_java)
+
+                yield CodeSample(
+                    code_a=original_code,
+                    code_b=plag_code,
+                    label=1,
+                    dataset='SourceCodePlag'
+                )

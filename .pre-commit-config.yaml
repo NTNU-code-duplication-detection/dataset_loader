@@ -12,4 +12,7 @@ repos:
     rev: v3.1.0
     hooks:
       - id: pylint
+        name: pylint
+        language: system
+        types: [python]
         files: \.py$

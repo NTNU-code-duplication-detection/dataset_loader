@@ -7,12 +7,18 @@ code embeddings generated using transformers models.
 
 # pylint: disable=import-error
 
-from pathlib import Path
 from typing import Tuple, List
 
 import numpy as np
 import matplotlib.pyplot as plt
+
 from transformers import pipeline
+from src import pooling
+
+
+from data.dataset_factory import get_dataset_generator
+
+
 class CodeEmbeddingPipeline:
     """
     Pipeline for creating embeddings from code functions and detecting plagiarism.
@@ -22,41 +28,35 @@ class CodeEmbeddingPipeline:
         """
         Initialize the pipeline with a specific model.
 
-        Args:
-            model_name: HuggingFace model identifier
+        @param model_name:HuggingFace model identifier
         """
         self.model_name = model_name
         self.pipe = pipeline("feature-extraction", model=model_name)
 
-    def read_function(self, path: str) -> str:
+    def create_embedding(self, code: str) -> list:
         """
-        Read a function from a file.
+        Create embedding from code.
 
-        Args:
-            path: Path to the code file
+        @param code: Source code as string
 
         Returns:
-            str: Content of the file
+            list: Embedding vectors from the model
         """
-        file_path = Path(path)
-        if not file_path.is_file():
-            raise FileNotFoundError(f"File does not exist: {path}")
-        return file_path.read_text(encoding="utf-8")
+        # Get embeddings from pipeline (shape: 1, seq_len, hidden_size)
+        output = self.pipe(code)
+        return output
 
-    def create_embedding(self, code: str) -> np.ndarray:
+    def mean_pool(self, embeddings: list) -> np.ndarray:
         """
-        Create embedding from code using mean pooling.
+        Create mean pool from embedding vectors.
 
         Args:
-            code: Source code as string
+            embeddings: Embedding vectors
 
         Returns:
             np.ndarray: Mean-pooled embedding vector
         """
-        # Get embeddings from pipeline (shape: 1, seq_len, hidden_size)
-        output = self.pipe(code)
-        # Mean pool over sequence length (shape: hidden_size,)
-        embedding = np.mean(output[0], axis=0)
+        embedding = np.mean(embeddings[0], axis=0)
         return embedding
 
     def compute_cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -78,93 +78,32 @@ class CodeEmbeddingPipeline:
         )
         return float(cosine_sim)
 
-    def function_to_embedding(self, function_path: str) -> np.ndarray:
+    def compare_code_strings(self, code_a: str, code_b: str) -> Tuple[float, bool]:
         """
-        Complete pipeline: Function file -> Embedding.
-
-        @param function_path: Path to function file
-
-        @return: np.ndarray: Embedding vector
-        """
-        code = self.read_function(function_path)
-        embedding = self.create_embedding(code)
-        return embedding
-
-    def compare_functions(self, func1_path: str, func2_path: str) -> Tuple[float, bool]:
-        """
-        Compare two functions for plagiarism detection.
+        Compare two code strings for plagiarism detection.
 
         Args:
-            func1_path: Path to first function
-            func2_path: Path to second function
+            code_a: First code string
+            code_b: Second code string
 
         Returns:
             Tuple[float, bool]: (similarity_score, is_plagiarized)
         """
-        emb1 = self.function_to_embedding(func1_path)
-        emb2 = self.function_to_embedding(func2_path)
+        # Create embeddings from code strings
+        emb1 = self.create_embedding(code_a)
+        emb2 = self.create_embedding(code_b)
 
-        similarity = self.compute_cosine_similarity(emb1, emb2)
+        # Mean pool the embeddings
+        mean1 = pooling.pool_embeddings(emb1)["mean"]
+        mean2 = pooling.pool_embeddings(emb2)["mean"]
 
+        # Calculate similarity
+        similarity = self.compute_cosine_similarity(mean1, mean2)
 
-        threshold = 0.90 # Treshold parameter. Definding what is plagiat and what is not
+        threshold = 0.90  # Threshold parameter. Defining what is plagiarism and what is not
         is_plagiarized = similarity >= threshold
 
         return similarity, is_plagiarized
-
-
-def original_non_plagiarized_generator(dataset_path: str):
-    """
-    Generator for non-plagiarized pairs - compares original files from different cases.
-    """
-    dataset_root = Path(dataset_path)
-    original_files = []
-
-    for case_folder in sorted(dataset_root.iterdir()):
-        if not case_folder.is_dir() or not case_folder.name.startswith('case-'):
-            continue
-
-        original_folder = case_folder / 'original'
-        if original_folder.exists():
-            java_files = list(original_folder.glob('*.java'))
-            if java_files:
-                original_files.append(java_files[0])
-
-    # Compare different original files (non-plagiarized pairs)
-    for i, file1 in enumerate(original_files):
-        for file2 in original_files[i + 1:min(i + 3, len(original_files))]:
-            yield (str(file1), str(file2))
-
-
-def original_plagiarized_generator(dataset_path: str):
-    """
-    Generator for plagiarized pairs - compares original with plagiarized versions.
-    """
-    dataset_root = Path(dataset_path)
-
-    for case_folder in sorted(dataset_root.iterdir()):
-        if not case_folder.is_dir() or not case_folder.name.startswith('case-'):
-            continue
-
-        # Find original file
-        original_folder = case_folder / 'original'
-        if not original_folder.exists():
-            continue
-
-        original_files = list(original_folder.glob('*.java'))
-        if not original_files:
-            continue
-
-        original_file = original_files[0]
-
-        # Find plagiarized files (recursively)
-        plagiarized_folder = case_folder / 'plagiarized'
-        if not plagiarized_folder.exists():
-            continue
-
-        plag_files = list(plagiarized_folder.rglob('*.java'))
-        for plag_file in plag_files:
-            yield (str(original_file), str(plag_file))
 
 
 class PlagiarismDetectionAnalyzer:
@@ -173,34 +112,63 @@ class PlagiarismDetectionAnalyzer:
     """
 
     def __init__(self, embedding_pipeline: CodeEmbeddingPipeline):
+        """
+        Initialize the analyzer.
+
+        Args:
+            embedding_pipeline: CodeEmbeddingPipeline instance for generating embeddings
+        """
         self.pipeline = embedding_pipeline
         self.plagiarized_scores: List[float] = []
         self.non_plagiarized_scores: List[float] = []
 
-    def analyze_dataset(self, dataset_path: str):
+    def analyze_dataset(self, dataset_name: str = "sourcecodeplag"):
         """
-        Analyze entire dataset and collect similarity scores.
+        Analyze entire dataset and collect similarity scores using the dataset factory.
 
         Args:
-            dataset_path: Path to IR-Plag-Dataset
+            dataset_name: Name of dataset to use (e.g., 'sourcecodeplag', 'bigclonebench')
         """
+
         print('=' * 60)
         print('Analyzing Non-Plagiarized Pairs')
         print('=' * 60)
 
-        for original, extern in original_non_plagiarized_generator(dataset_path):
-            similarity, is_plag = self.pipeline.compare_functions(original, extern)
+        # Get non-plagiarized generator from factory
+        non_plag_generator = get_dataset_generator(
+            dataset_name=dataset_name,
+            mode="non_plagiarized"
+        )
+
+        for code_sample in non_plag_generator:
+            # CodeSample has: code_a, code_b, label, dataset
+            similarity, is_plag = self.pipeline.compare_code_strings(
+                code_sample.code_a,
+                code_sample.code_b
+            )
             self.non_plagiarized_scores.append(similarity)
-            print(f"Similarity: {similarity:.4f} | Plagiarized: {is_plag}")
+            print(f"Similarity: {similarity:.4f} | Plagiarized: {is_plag} | "
+                  f"Label: {code_sample.label}")
 
         print('\n' + '=' * 60)
         print('Analyzing Plagiarized Pairs')
         print('=' * 60)
 
-        for original, extern in original_plagiarized_generator(dataset_path):
-            similarity, is_plag = self.pipeline.compare_functions(original, extern)
+        # Get plagiarized generator from factory
+        plag_generator = get_dataset_generator(
+            dataset_name=dataset_name,
+            mode="plagiarized",
+        )
+
+        for code_sample in plag_generator:
+            # CodeSample has: code_a (original), code_b (plagiarized), label, dataset
+            similarity, is_plag = self.pipeline.compare_code_strings(
+                code_sample.code_a,
+                code_sample.code_b
+            )
             self.plagiarized_scores.append(similarity)
-            print(f"Similarity: {similarity:.4f} | Plagiarized: {is_plag}")
+            print(f"Similarity: {similarity:.4f} | Plagiarized: {is_plag} | "
+                  f"Label: {code_sample.label}")
 
     def plot_histogram(self, save_path: str = "similarity_histogram.png"):
         """
@@ -218,8 +186,8 @@ class PlagiarismDetectionAnalyzer:
                  label='Plagiarized (Type-1)', color='red', density=True)
 
         # Add vertical line for threshold
-        plt.axvline(x=0.95, color='green', linestyle='--',
-                    linewidth=2, label='Threshold (0.95)')
+        plt.axvline(x=0.90, color='green', linestyle='--',
+                    linewidth=2, label='Threshold (0.90)')
 
         plt.xlabel('Cosine Similarity Score', fontsize=12)
         plt.ylabel('Density', fontsize=12)
@@ -271,10 +239,11 @@ def main():
     # Initialize analyzer
     analyzer = PlagiarismDetectionAnalyzer(embedding_pipeline)
 
-    # Analyze dataset
-    dataset_path = (Path(__file__).parent.parent /'datasets'/
-                    'sourcecodeplagiarismdataset'/'IR-Plag-Dataset')
-    analyzer.analyze_dataset(str(dataset_path))
+    # Analyze dataset using factory
+    # You can change dataset_name to "bigclonebench" or "codexglue" if needed
+    analyzer.analyze_dataset(
+        dataset_name="sourcecodeplag",
+    )
 
     # Compute statistics
     analyzer.compute_statistics()

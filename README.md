@@ -49,8 +49,8 @@ After stripping, it also:
 Takes an input directory and an output directory. Recursively finds all `.java` files in the input, strips comments, and writes cleaned copies to the output — preserving the original folder structure. Original files are never modified.
 
 ```bash
-python -m preprocessing.comment_stripper \
-    --input ../code-clone-dataset/dataset \
+python -m preprocessing.comment_stripper 
+    --input ../code-clone-dataset/dataset 
     --output ./output/stripped
 ```
 
